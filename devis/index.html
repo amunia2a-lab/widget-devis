@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Devis clients</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+
+<body>
+
+<div class="container">
+
+<header class="header">
+<h1>📄 Devis clients</h1>
+</header>
+
+<div id="devisList" class="cards"></div>
+
+<div class="form">
+<h2>Nouveau devis</h2>
+
+<input id="client" placeholder="Client">
+<input id="vehicule" placeholder="Véhicule">
+<input id="immat" placeholder="Immatriculation">
+<input id="intervention" placeholder="Intervention">
+<input id="telephone" placeholder="Téléphone">
+<input id="mail" placeholder="Mail">
+<input id="photoUrl" placeholder="Photo URL">
+<select id="statut">
+<option>En attente</option>
+<option>À relancer</option>
+<option>Validé</option>
+</select>
+
+<button onclick="createDevis()">Ajouter</button>
+
+</div>
+
+</div>
+
+<script>
+
+async function loadDevis(){
+
+const res = await fetch("/api/devis")
+const devis = await res.json()
+
+const container = document.getElementById("devisList")
+container.innerHTML = ""
+
+devis.forEach(d=>{
+
+const card = document.createElement("div")
+card.className = "card"
+
+card.innerHTML = `
+
+<div class="cardHeader">
+<span class="badge ${d.statut.replace(" ","").toLowerCase()}">${d.statut}</span>
+<h3>${d.vehicule} — ${d.intervention}</h3>
+</div>
+
+<div class="meta">
+<span>🚗 ${d.immat}</span>
+<span>📅 ${d.date || ""}</span>
+</div>
+
+<div class="content">
+
+<div class="photo">
+${d.photo ? `<img src="${d.photo}">` : ""}
+</div>
+
+<div class="infos">
+<div>👤 ${d.client}</div>
+<div>📞 ${d.telephone || ""}</div>
+<div>✉ ${d.mail || ""}</div>
+</div>
+
+</div>
+
+<div class="actions">
+<button onclick="createPiece('${d.id}')">Pièce à commander</button>
+</div>
+
+`
+
+container.appendChild(card)
+
+})
+
+}
+
+async function createDevis(){
+
+const payload={
+client:client.value,
+vehicule:vehicule.value,
+immat:immat.value,
+intervention:intervention.value,
+telephone:telephone.value,
+mail:mail.value,
+statut:statut.value,
+photoUrl:photoUrl.value
+}
+
+await fetch("/api/devis",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify(payload)
+})
+
+loadDevis()
+
+}
+
+async function createPiece(id){
+
+await fetch(`/api/devis/${id}/create-piece-order`,{method:"POST"})
+
+alert("Commande pièce créée")
+
+}
+
+loadDevis()
+
+</script>
+
+</body>
+</html>
