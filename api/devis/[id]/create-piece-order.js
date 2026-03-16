@@ -1,3 +1,4 @@
+
 const {
   notion,
   COMMANDES_DB_ID,
@@ -16,6 +17,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const { id: devisId } = req.query;
+
     const devisPage = await notion.pages.retrieve({ page_id: devisId });
     const devis = mapDevis(devisPage);
 
@@ -23,20 +25,16 @@ module.exports = async function handler(req, res) {
       return sendJson(res, 400, { error: 'Commande déjà créée pour ce devis.' });
     }
 
-    const nom = `${devis.vehicule || 'Véhicule'} — ${devis.intervention || 'Intervention'}`;
-
     const commande = await notion.pages.create({
       parent: { database_id: COMMANDES_DB_ID },
       properties: {
-        'Nom': { title: rt(nom) },
-        'Client': { rich_text: rt(devis.client) },
+        'Immat': { title: rt(devis.immat) },
         'Véhicule': { rich_text: rt(devis.vehicule) },
-        'Immat': { rich_text: rt(devis.immat) },
+        'Client': { rich_text: rt(devis.client) },
         'Intervention': { rich_text: rt(devis.intervention) },
         'Fournisseur': { rich_text: [] },
         'Date commande': { date: null },
-        'Statut': { select: { name: 'À commander' } },
-        'Devis lié': { rich_text: rt(devis.id) }
+        'Statut': { select: { name: 'À commander' } }
       }
     });
 
@@ -49,6 +47,7 @@ module.exports = async function handler(req, res) {
     });
 
     return sendJson(res, 200, { ok: true, commandeId: commande.id });
+
   } catch (error) {
     console.error(error);
     return sendJson(res, 500, { error: 'Impossible de créer la commande depuis le devis.' });
