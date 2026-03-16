@@ -1,120 +1,239 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Devis clients</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="nav">
-    <a href="/devis">📄 Devis clients</a>
-    <a href="/commandes">📦 Commandes de pièces</a>
-  </div>
-  <div class="page">
-    <section class="widget">
-      <div class="header">
-        <div class="title-wrap">
-          <div class="title-icon">📄</div>
-          <div class="title">Devis clients</div>
-        </div>
-        <div class="counters" id="devisCounters"></div>
+  <main class="widget">
+    <header class="widget-header">
+      <div class="title-wrap">
+        <span class="title-icon">📄</span>
+        <h1>Devis clients</h1>
       </div>
-      <div class="table-head">
-        <div class="label">🔢 Immat</div>
-        <div class="label">🚗 Véhicule</div>
-        <div class="label">👤 Client</div>
-        <div class="label">🔧 Intervention</div>
-        <div class="label">📌 Statut</div>
-        <div class="label">📦 Commande pièce</div>
-        <div class="label">⚡ Action</div>
+      <div class="counters">
+        <div class="counter red"><span class="dot"></span><span id="count-pending">0</span></div>
+        <div class="counter yellow"><span class="dot"></span><span id="count-follow">0</span></div>
       </div>
-      <div class="rows" id="devisRows"></div>
-      <div class="form-card">
-        <div class="form-grid">
-          <div class="field"><label>🔢 Immatriculation</label><input id="d-immat" placeholder="AB-123-CD"></div>
-          <div class="field"><label>🚗 Véhicule</label><input id="d-vehicule" placeholder="Peugeot 208"></div>
-          <div class="field"><label>👤 Client</label><input id="d-client" placeholder="Martin"></div>
-          <div class="field"><label>🔧 Intervention</label><input id="d-intervention" placeholder="Embrayage"></div>
+    </header>
+
+    <section id="devis-list" class="cards"></section>
+
+    <form id="devis-form" class="quick-form">
+      <div class="form-grid top">
+        <label>
+          <span>Client</span>
+          <input type="text" id="client" placeholder="Martin" required />
+        </label>
+        <label>
+          <span>Véhicule</span>
+          <input type="text" id="vehicule" placeholder="Peugeot 208" required />
+        </label>
+        <label>
+          <span>Immatriculation</span>
+          <input type="text" id="immat" placeholder="AB-123-CD" required />
+        </label>
+        <label>
+          <span>Intervention</span>
+          <input type="text" id="intervention" placeholder="Embrayage" required />
+        </label>
+      </div>
+
+      <div class="form-grid bottom">
+        <label>
+          <span>Téléphone</span>
+          <input type="text" id="telephone" placeholder="06 12 34 56 78" />
+        </label>
+        <label>
+          <span>Mail</span>
+          <input type="email" id="mail" placeholder="client@email.fr" />
+        </label>
+        <label>
+          <span>Date</span>
+          <input type="date" id="date" />
+        </label>
+        <label>
+          <span>Statut</span>
+          <select id="statut">
+            <option>En attente</option>
+            <option>À relancer</option>
+            <option>Validé</option>
+          </select>
+        </label>
+        <label class="photo-field">
+          <span>Photo URL</span>
+          <input type="url" id="photoUrl" placeholder="https://..." />
+        </label>
+        <button type="submit" class="btn primary">Ajouter</button>
+      </div>
+      <p class="form-note">Les devis sont enregistrés dans Notion. La photo s'affiche automatiquement si la propriété <strong>Photo</strong> ou <strong>Photo URL</strong> est renseignée.</p>
+    </form>
+  </main>
+
+  <template id="card-template">
+    <article class="card">
+      <div class="card-head">
+        <div class="head-left">
+          <span class="badge"></span>
+          <h2 class="headline"></h2>
         </div>
-        <div class="form-bottom" style="grid-template-columns: 1fr 280px;">
-          <div class="field"><label>📌 Statut</label><select id="d-statut"><option>En attente</option><option>À relancer</option><option>Validé</option></select></div>
-          <button class="primary" id="createDevisBtn">Ajouter</button>
+        <div class="actions">
+          <button class="btn secondary btn-status"></button>
+          <button class="btn piece-btn">Pièce à commander</button>
         </div>
       </div>
-      <div class="footer-note" id="devisFooter"></div>
-    </section>
-  </div>
+
+      <div class="meta-row">
+        <span class="meta-item date-item"></span>
+        <span class="meta-sep">•</span>
+        <span class="meta-item immat-item"></span>
+      </div>
+
+      <div class="info-row">
+        <div class="photo-box">
+          <img class="photo" alt="Photo devis" />
+          <div class="photo-empty">Aucune photo</div>
+        </div>
+
+        <div class="contact-grid">
+          <div class="contact-line name-line"></div>
+          <div class="contact-line phone-line"></div>
+          <div class="contact-line mail-line"></div>
+        </div>
+      </div>
+    </article>
+  </template>
+
   <script>
-    const badgeClass = (status) => status === 'Validé' ? 'green' : status === 'À relancer' ? 'blue' : 'yellow';
+    const API_DEVIS = '/api/devis';
+    const API_CREATE_PIECE = (id) => `/api/devis/${id}/create-piece-order`;
 
-    async function loadDevis() {
-      const res = await fetch('/api/devis');
-      const devis = await res.json();
-      const rows = document.getElementById('devisRows');
-      rows.innerHTML = devis.map(d => `
-        <div class="row">
-          <div>${escapeHtml(d.immat || '')}</div>
-          <div>${escapeHtml(d.vehicule || '')}</div>
-          <div>${escapeHtml(d.client || '')}</div>
-          <div><span class="badge ${badgeClass(d.statut)}">${escapeHtml(d.intervention || '')}</span></div>
-          <div><span class="badge ${badgeClass(d.statut)}">${escapeHtml(d.statut || '')}</span></div>
-          <div>${d.commandeCreee ? '<span class="badge green">Commande créée</span>' : '<span class="badge yellow">À créer</span>'}</div>
-          <div class="actions"><button class="link-btn ${d.commandeCreee ? 'success' : ''}" ${d.commandeCreee ? 'disabled' : ''} onclick="createPieceOrder('${d.id}', this)">${d.commandeCreee ? 'Déjà créée' : 'Pièce à commander'}</button></div>
-        </div>`).join('');
+    const listEl = document.getElementById('devis-list');
+    const template = document.getElementById('card-template');
+    const form = document.getElementById('devis-form');
 
-      const attente = devis.filter(x => x.statut === 'En attente').length;
-      const relance = devis.filter(x => x.statut === 'À relancer').length;
-      const valide = devis.filter(x => x.statut === 'Validé').length;
-      document.getElementById('devisCounters').innerHTML = `
-        <div class="counter"><span class="dot yellow"></span>${attente}</div>
-        <div class="counter"><span class="dot blue"></span>${relance}</div>
-        <div class="counter"><span class="dot green"></span>${valide}</div>`;
-      document.getElementById('devisFooter').innerHTML = `${devis.length} devis <span class="green-dot">•</span> Mise à jour en temps réel`;
+    const statusMap = {
+      'En attente': { cls: 'red', action: 'Validé' },
+      'À relancer': { cls: 'yellow', action: 'Relancé' },
+      'Validé': { cls: 'green', action: 'Archiver' }
+    };
+
+    function safe(v) { return v || ''; }
+
+    function renderCounters(devis) {
+      const pending = devis.filter(d => d.statut === 'En attente').length;
+      const follow = devis.filter(d => d.statut === 'À relancer').length;
+      document.getElementById('count-pending').textContent = pending;
+      document.getElementById('count-follow').textContent = follow;
     }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
-    }
+    function renderCards(devis) {
+      listEl.innerHTML = '';
+      renderCounters(devis);
 
-    async function createPieceOrder(id, btn) {
-      btn.disabled = true;
-      btn.textContent = 'Création...';
-      const res = await fetch(`/api/devis/${id}/create-piece-order`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Erreur');
-        btn.disabled = false;
-        btn.textContent = 'Pièce à commander';
+      if (!devis.length) {
+        listEl.innerHTML = '<p class="empty">Aucun devis.</p>';
         return;
       }
-      await loadDevis();
-    }
-    window.createPieceOrder = createPieceOrder;
 
-    document.getElementById('createDevisBtn').addEventListener('click', async () => {
+      for (const item of devis) {
+        const node = template.content.cloneNode(true);
+        const badge = node.querySelector('.badge');
+        const headline = node.querySelector('.headline');
+        const dateItem = node.querySelector('.date-item');
+        const immatItem = node.querySelector('.immat-item');
+        const photo = node.querySelector('.photo');
+        const photoEmpty = node.querySelector('.photo-empty');
+        const nameLine = node.querySelector('.name-line');
+        const phoneLine = node.querySelector('.phone-line');
+        const mailLine = node.querySelector('.mail-line');
+        const statusBtn = node.querySelector('.btn-status');
+        const pieceBtn = node.querySelector('.piece-btn');
+
+        const current = statusMap[item.statut] || statusMap['En attente'];
+        badge.textContent = safe(item.statut);
+        badge.classList.add(current.cls);
+        headline.textContent = `${safe(item.vehicule)} — ${safe(item.intervention)}`;
+        dateItem.textContent = `📅 ${safe(item.date)}`;
+        immatItem.textContent = `🚗 ${safe(item.immat)}`;
+        nameLine.textContent = `👤 ${safe(item.client)}`;
+        phoneLine.textContent = item.telephone ? `📞 ${item.telephone}` : '📞 —';
+        mailLine.textContent = item.mail ? `✉️ ${item.mail}` : '✉️ —';
+        statusBtn.textContent = current.action;
+
+        if (item.photo) {
+          photo.src = item.photo;
+          photo.style.display = 'block';
+          photoEmpty.style.display = 'none';
+        } else {
+          photo.style.display = 'none';
+          photoEmpty.style.display = 'flex';
+        }
+
+        pieceBtn.disabled = !!item.commandeCreee;
+        pieceBtn.textContent = item.commandeCreee ? 'Commande créée' : 'Pièce à commander';
+
+        pieceBtn.addEventListener('click', async () => {
+          if (pieceBtn.disabled) return;
+          pieceBtn.disabled = true;
+          pieceBtn.textContent = 'Création...';
+          try {
+            const res = await fetch(API_CREATE_PIECE(item.id), { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Erreur');
+            await loadDevis();
+          } catch (err) {
+            alert(err.message || 'Impossible de créer la commande.');
+            pieceBtn.disabled = false;
+            pieceBtn.textContent = 'Pièce à commander';
+          }
+        });
+
+        listEl.appendChild(node);
+      }
+    }
+
+    async function loadDevis() {
+      const res = await fetch(API_DEVIS);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Impossible de charger les devis.');
+      renderCards(data);
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
       const payload = {
-        immat: document.getElementById('d-immat').value,
-        vehicule: document.getElementById('d-vehicule').value,
-        client: document.getElementById('d-client').value,
-        intervention: document.getElementById('d-intervention').value,
-        statut: document.getElementById('d-statut').value
+        client: document.getElementById('client').value.trim(),
+        vehicule: document.getElementById('vehicule').value.trim(),
+        immat: document.getElementById('immat').value.trim(),
+        intervention: document.getElementById('intervention').value.trim(),
+        telephone: document.getElementById('telephone').value.trim(),
+        mail: document.getElementById('mail').value.trim(),
+        date: document.getElementById('date').value,
+        statut: document.getElementById('statut').value,
+        photoUrl: document.getElementById('photoUrl').value.trim()
       };
-      const res = await fetch('/api/devis', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-      });
-      if (!res.ok) return alert('Erreur création devis');
-      document.querySelectorAll('input').forEach(i => i.value = '');
-      document.getElementById('d-statut').value = 'En attente';
-      await loadDevis();
+
+      try {
+        const res = await fetch(API_DEVIS, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur création devis');
+        form.reset();
+        await loadDevis();
+      } catch (err) {
+        alert(err.message || 'Impossible de créer le devis.');
+      }
     });
 
-    loadDevis();
+    loadDevis().catch((e) => {
+      listEl.innerHTML = `<p class="empty">${e.message}</p>`;
+    });
   </script>
 </body>
 </html>
