@@ -18,7 +18,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       const result = await notion.databases.query({
         database_id: DEVIS_DB_ID,
-        sorts: [{ property: 'Nom', direction: 'ascending' }]
+        sorts: [{ property: 'Client', direction: 'ascending' }]
       });
       return sendJson(res, 200, result.results.map(mapDevis));
     }
@@ -26,13 +26,11 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST') {
       const body = await parseBody(req);
       const { client = '', vehicule = '', immat = '', intervention = '', statut = 'En attente' } = body;
-      const nom = `${vehicule || 'Véhicule'} — ${intervention || 'Intervention'}`;
 
       const created = await notion.pages.create({
         parent: { database_id: DEVIS_DB_ID },
         properties: {
-          'Nom': { title: rt(nom) },
-          'Client': { rich_text: rt(client) },
+          'Client': { title: rt(client || 'Sans nom') },
           'Véhicule': { rich_text: rt(vehicule) },
           'Immat': { rich_text: rt(immat) },
           'Intervention': { rich_text: rt(intervention) },
