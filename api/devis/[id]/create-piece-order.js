@@ -1,4 +1,3 @@
-
 const {
   notion,
   COMMANDES_DB_ID,
@@ -28,10 +27,10 @@ module.exports = async function handler(req, res) {
     const commande = await notion.pages.create({
       parent: { database_id: COMMANDES_DB_ID },
       properties: {
-        'Immat': { title: rt(devis.immat) },
-        'Véhicule': { rich_text: rt(devis.vehicule) },
-        'Client': { rich_text: rt(devis.client) },
-        'Intervention': { rich_text: rt(devis.intervention) },
+        'Immat': { title: rt(devis.immat || 'Sans immat') },
+        'Véhicule': { rich_text: rt(devis.vehicule || '') },
+        'Client': { rich_text: rt(devis.client || '') },
+        'Intervention': { rich_text: rt(devis.intervention || '') },
         'Fournisseur': { rich_text: [] },
         'Date commande': { date: null },
         'Statut': { select: { name: 'À commander' } }
