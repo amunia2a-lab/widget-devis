@@ -1,3 +1,4 @@
+
 const {
   notion,
   COMMANDES_DB_ID,
@@ -20,11 +21,13 @@ module.exports = async function handler(req, res) {
         database_id: COMMANDES_DB_ID,
         sorts: [{ property: 'Date commande', direction: 'descending' }]
       });
+
       return sendJson(res, 200, result.results.map(mapCommande));
     }
 
     if (req.method === 'POST') {
       const body = await parseBody(req);
+
       const {
         client = '',
         vehicule = '',
@@ -34,20 +37,17 @@ module.exports = async function handler(req, res) {
         dateCommande = null,
         statut = 'À commander'
       } = body;
-      const nom = `${vehicule || 'Véhicule'} — ${intervention || 'Intervention'}`;
 
       const created = await notion.pages.create({
         parent: { database_id: COMMANDES_DB_ID },
         properties: {
-          'Nom': { title: rt(nom) },
-          'Client': { rich_text: rt(client) },
+          'Immat': { title: rt(immat || 'Sans immat') },
           'Véhicule': { rich_text: rt(vehicule) },
-          'Immat': { rich_text: rt(immat) },
+          'Client': { rich_text: rt(client) },
           'Intervention': { rich_text: rt(intervention) },
           'Fournisseur': { rich_text: rt(fournisseur) },
           'Date commande': dateCommande ? { date: { start: dateCommande } } : { date: null },
-          'Statut': { select: { name: statut } },
-          'Devis lié': { rich_text: [] }
+          'Statut': { select: { name: statut } }
         }
       });
 
@@ -55,6 +55,7 @@ module.exports = async function handler(req, res) {
     }
 
     return sendJson(res, 405, { error: 'Méthode non autorisée.' });
+
   } catch (error) {
     console.error(error);
     return sendJson(res, 500, { error: 'Impossible de traiter les commandes.' });
