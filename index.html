@@ -31,6 +31,7 @@
       </div>
 
       <form id="quick-form" class="quick-form">
+        <input type="hidden" id="editId" />
         <div class="form-grid form-top">
           <label>
             <span>Client</span>
@@ -72,11 +73,11 @@
             </select>
           </label>
 
-          <div class="action-box">
-            <label for="photoUrl" class="action-content">
+          <div class="action-box" id="urlBox">
+            <button class="action-content button-reset" type="button" id="urlButton">
               <span class="icon">🔗</span>
-              <span class="label">Ajouter URL</span>
-            </label>
+              <span class="label" id="urlLabel">Ajouter URL</span>
+            </button>
             <input id="photoUrl" type="text" class="hidden-input" />
           </div>
 
@@ -88,7 +89,10 @@
             <input id="photos" type="file" accept="image/*" multiple hidden />
           </div>
 
-          <button class="primary-btn" type="submit">+ Ajouter</button>
+          <div class="button-stack">
+            <button class="primary-btn" type="submit" id="submitBtn">+ Ajouter</button>
+            <button class="ghost-btn hidden" type="button" id="cancelEditBtn">Annuler</button>
+          </div>
         </div>
       </form>
     </section>
@@ -100,6 +104,10 @@ const toastEl = document.getElementById('toast');
 const photosInput = document.getElementById('photos');
 const photoPickerText = document.getElementById('photo-picker-text');
 const photoUrlInput = document.getElementById('photoUrl');
+const urlLabel = document.getElementById('urlLabel');
+const submitBtn = document.getElementById('submitBtn');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
+const editIdInput = document.getElementById('editId');
 
 function showToast(message) {
   toastEl.textContent = message;
@@ -115,11 +123,11 @@ function badgeClass(statut='') {
   return 'red';
 }
 
-function nextActionLabel(statut='') {
-  if (statut === 'En attente') return 'Validé';
-  if (statut === 'À relancer') return 'Relancé';
-  if (statut === 'Validé') return 'Archiver';
-  return 'Validé';
+function piecesClass(statut='') {
+  if (statut === 'À commander') return 'yellow';
+  if (statut === 'Commandé') return 'blue';
+  if (statut === 'Reçu') return 'green';
+  return 'blue';
 }
 
 function renderStats(items) {
@@ -142,6 +150,42 @@ function filesToBase64(files) {
     reader.readAsDataURL(file);
   })));
 }
+
+function setFormModeEdit(item) {
+  editIdInput.value = item.id || '';
+  document.getElementById('client').value = item.client || '';
+  document.getElementById('vehicule').value = item.vehicule || '';
+  document.getElementById('immat').value = item.immat || '';
+  document.getElementById('intervention').value = item.intervention || '';
+  document.getElementById('telephone').value = item.telephone || '';
+  document.getElementById('mail').value = item.mail || '';
+  document.getElementById('date').value = item.date || '';
+  document.getElementById('statut').value = item.statut || 'En attente';
+  photoUrlInput.value = item.url || '';
+  urlLabel.textContent = item.url ? 'URL ajoutée' : 'Ajouter URL';
+  submitBtn.textContent = 'Enregistrer';
+  cancelEditBtn.classList.remove('hidden');
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+function resetFormMode() {
+  document.getElementById('quick-form').reset();
+  editIdInput.value = '';
+  photoPickerText.textContent = 'Ajouter photo';
+  urlLabel.textContent = 'Ajouter URL';
+  submitBtn.textContent = '+ Ajouter';
+  cancelEditBtn.classList.add('hidden');
+}
+
+document.getElementById('urlButton').addEventListener('click', () => {
+  const current = photoUrlInput.value || '';
+  const value = window.prompt('Colle le lien URL de la photo', current);
+  if (value === null) return;
+  photoUrlInput.value = value.trim();
+  urlLabel.textContent = photoUrlInput.value ? 'URL ajoutée' : 'Ajouter URL';
+});
+
+cancelEditBtn.addEventListener('click', resetFormMode);
 
 photosInput.addEventListener('change', () => {
   const count = photosInput.files?.length || 0;
@@ -167,14 +211,22 @@ async function loadRows() {
 
   const devis = devisRes.ok ? await devisRes.json() : [];
   const commandes = commandesRes.ok ? await commandesRes.json() : [];
-  const sentImmat = new Set(commandes.map(c => (c.immat || '').trim().toUpperCase()).filter(Boolean));
+
+  const commandeMap = new Map();
+  commandes.forEach(c => {
+    const key = (c.immat || '').trim().toUpperCase();
+    if (!key) return;
+    commandeMap.set(key, c);
+  });
 
   rowsEl.innerHTML = '';
   renderStats(devis);
 
   devis.forEach(item => {
     const immatKey = (item.immat || '').trim().toUpperCase();
-    const isInPieces = sentImmat.has(immatKey) || !!item.commandeCreee;
+    const linkedCommande = commandeMap.get(immatKey);
+    const piecesStatut = linkedCommande?.statut || (item.commandeCreee ? 'À commander' : '');
+    const isInPieces = !!linkedCommande || !!item.commandeCreee;
 
     const row = document.createElement('article');
     row.className = 'row-card';
@@ -193,9 +245,10 @@ async function loadRows() {
             <span>${item.intervention || ''}</span>
           </div>
           <div class="row-actions">
-            <button class="ghost-btn" type="button">${nextActionLabel(item.statut)}</button>
+            <button class="ghost-btn edit-btn" type="button">Modifier</button>
+            <button class="ghost-btn archive-btn" type="button">${item.statut === 'Validé' ? 'Archiver' : 'Validé'}</button>
             <button class="secondary-btn piece-btn ${isInPieces ? 'is-blue' : 'is-yellow'}" type="button">
-              ${isInPieces ? 'Demande envoyée' : 'Demander pièces'}
+              ${isInPieces ? (piecesStatut || 'Demande envoyée') : 'Demander pièces'}
             </button>
           </div>
         </div>
@@ -207,15 +260,20 @@ async function loadRows() {
           </div>
           <span class="meta">${item.telephone ? '📞 ' + item.telephone : ''}</span>
           <span class="meta">${item.mail ? '✉ ' + item.mail : ''}</span>
+          ${piecesStatut ? `<span class="pieces-pill ${piecesClass(piecesStatut)}">Pièces : ${piecesStatut}</span>` : ''}
         </div>
       </div>
     `;
 
     const pieceBtn = row.querySelector('.piece-btn');
     const statusBtn = row.querySelector('.status-btn');
+    const archiveBtn = row.querySelector('.archive-btn');
+    const editBtn = row.querySelector('.edit-btn');
+
+    editBtn.addEventListener('click', () => setFormModeEdit(item));
 
     if (item.statut !== 'Validé') {
-      statusBtn.addEventListener('click', async () => {
+      const validateAction = async () => {
         try {
           statusBtn.disabled = true;
           await updateStatus(item.id, 'Validé');
@@ -225,7 +283,9 @@ async function loadRows() {
           showToast(e.message || 'Impossible de modifier le statut.');
           statusBtn.disabled = false;
         }
-      });
+      };
+      statusBtn.addEventListener('click', validateAction);
+      archiveBtn.addEventListener('click', validateAction);
     } else {
       statusBtn.classList.add('is-static');
       statusBtn.disabled = true;
@@ -257,6 +317,7 @@ document.getElementById('quick-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
   const photoFiles = await filesToBase64(photosInput.files);
+  const editId = editIdInput.value.trim();
 
   const payload = {
     client: document.getElementById('client').value.trim(),
@@ -271,18 +332,18 @@ document.getElementById('quick-form').addEventListener('submit', async (e) => {
     photoFiles
   };
 
-  const res = await fetch('/api/devis', {
+  const url = editId ? `/api/devis/${editId}/update` : '/api/devis';
+  const res = await fetch(url, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify(payload)
   });
 
   const data = await res.json();
-  if (!res.ok) return showToast(data.error || "Impossible d'ajouter.");
+  if (!res.ok) return showToast(data.error || "Impossible d'enregistrer.");
 
-  e.target.reset();
-  photoPickerText.textContent = 'Ajouter photo';
-  showToast('Devis ajouté avec succès.');
+  resetFormMode();
+  showToast(editId ? 'Devis modifié avec succès.' : 'Devis ajouté avec succès.');
   await loadRows();
 });
 
