@@ -21,7 +21,7 @@
         </div>
       </header>
 
-      <div id="toast" class="toast hidden">Demande de pièces envoyée avec succès.</div>
+      <div id="toast" class="toast hidden"></div>
 
       <section id="rows" class="rows"></section>
 
@@ -68,14 +68,17 @@
               <option>Validé</option>
             </select>
           </label>
+          <label>
+            <span>URL</span>
+            <input id="photoUrl" placeholder="https://..." />
+          </label>
 
           <div class="photo-picker-wrap">
-            <span class="field-label">Photo</span>
-            <label class="photo-picker" for="photos">
-              <span>📷</span>
-              <span id="photo-picker-text">Ajouter photo(s)</span>
+            <label class="photo-picker icon-only" for="photos" title="Ajouter des photos">
+              <span class="camera-icon">📷</span>
             </label>
             <input id="photos" type="file" accept="image/*" multiple hidden />
+            <div id="photo-picker-text" class="photo-count">0 photo</div>
           </div>
 
           <button class="primary-btn" type="submit">+ Ajouter</button>
@@ -141,8 +144,19 @@ function filesToBase64(files) {
 
 photosInput.addEventListener('change', () => {
   const count = photosInput.files?.length || 0;
-  photoPickerText.textContent = count ? `${count} photo(s) sélectionnée(s)` : 'Ajouter photo(s)';
+  photoPickerText.textContent = count ? `${count} photo(s)` : '0 photo';
 });
+
+async function updateStatus(id, statut) {
+  const res = await fetch(`/api/devis/${id}/statut`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ statut })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Impossible de modifier le statut.');
+  return data;
+}
 
 async function loadRows() {
   const [devisRes, commandesRes] = await Promise.all([
@@ -171,7 +185,7 @@ async function loadRows() {
       <div class="row-main">
         <div class="line-1">
           <div class="client-line">
-            <span class="pill ${badgeClass(item.statut)}">${item.statut || ''}</span>
+            <button class="pill status-btn ${badgeClass(item.statut)}" type="button" title="Cliquer pour valider">${item.statut || ''}</button>
             <strong>${item.client || ''}</strong>
             <span class="sep">•</span>
             <span>${item.vehicule || ''}</span>
@@ -196,6 +210,24 @@ async function loadRows() {
     `;
 
     const pieceBtn = row.querySelector('.piece-btn');
+    const statusBtn = row.querySelector('.status-btn');
+
+    if (item.statut !== 'Validé') {
+      statusBtn.addEventListener('click', async () => {
+        statusBtn.disabled = true;
+        try {
+          await updateStatus(item.id, 'Validé');
+          showToast('Statut passé à Validé.');
+          await loadRows();
+        } catch (e) {
+          showToast(e.message || 'Impossible de modifier le statut.');
+          statusBtn.disabled = false;
+        }
+      });
+    } else {
+      statusBtn.classList.add('is-static');
+    }
+
     if (isInPieces) {
       pieceBtn.disabled = true;
     } else {
@@ -232,6 +264,7 @@ document.getElementById('quick-form').addEventListener('submit', async (e) => {
     mail: document.getElementById('mail').value.trim(),
     date: document.getElementById('date').value || null,
     statut: document.getElementById('statut').value,
+    photoUrl: document.getElementById('photoUrl').value.trim(),
     photoFiles
   };
 
@@ -245,9 +278,8 @@ document.getElementById('quick-form').addEventListener('submit', async (e) => {
     showToast(data.error || "Impossible d'ajouter.");
     return;
   }
-
   e.target.reset();
-  photoPickerText.textContent = 'Ajouter photo(s)';
+  photoPickerText.textContent = '0 photo';
   showToast('Devis ajouté avec succès.');
   await loadRows();
 });
