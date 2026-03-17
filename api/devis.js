@@ -26,9 +26,7 @@ async function createNotionFileUpload({ filename, contentType }) {
   });
 
   const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || 'Impossible de préparer l’upload de la photo.');
-  }
+  if (!res.ok) throw new Error(data.message || 'Impossible de préparer l’upload de la photo.');
   return data;
 }
 
@@ -55,9 +53,7 @@ async function sendFileToNotion(uploadUrl, file) {
   });
 
   const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || `Impossible d’envoyer le fichier "${file.name}".`);
-  }
+  if (!res.ok) throw new Error(data.message || `Impossible d’envoyer le fichier "${file.name}".`);
   return data;
 }
 
