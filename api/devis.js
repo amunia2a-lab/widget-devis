@@ -10,19 +10,7 @@ const {
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return sendJson(res, 200, { ok: true });
 
-  if (!process.env.NOTION_TOKEN || !DEVIS_DB_ID) {
-    return sendJson(res, 500, { error: 'Variables Vercel manquantes.' });
-  }
-
   try {
-    if (req.method === 'GET') {
-      const result = await notion.databases.query({
-        database_id: DEVIS_DB_ID,
-        sorts: [{ property: 'Client', direction: 'ascending' }]
-      });
-      return sendJson(res, 200, result.results.map(mapDevis));
-    }
-
     if (req.method === 'POST') {
       const body = await parseBody(req);
       const {
@@ -44,18 +32,14 @@ module.exports = async function handler(req, res) {
         'Intervention': { rich_text: rt(intervention) },
         'Téléphone': { rich_text: rt(telephone) },
         'Mail': { email: mail || null },
+        'Date': date ? { date: { start: date } } : { date: null },
         'Statut': { select: { name: statut } },
         'Commande créée': { checkbox: false },
         'ID commande pièce': { rich_text: [] }
-      },
-        //Date modifier
-        'Date': date
-        ? { date: { start: date } }
-        : { date: null }
       };
 
       if (photoUrl) {
-        properties['Photo URL'] = { url: photoUrl };
+        properties['URL'] = { url: photoUrl };
       }
 
       const created = await notion.pages.create({
@@ -69,6 +53,6 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 405, { error: 'Méthode non autorisée.' });
   } catch (error) {
     console.error(error);
-    return sendJson(res, 500, { error: 'Impossible de traiter les devis.' });
+    return sendJson(res, 500, { error: 'Erreur devis.' });
   }
 };
