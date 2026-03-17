@@ -44,10 +44,14 @@ module.exports = async function handler(req, res) {
         'Intervention': { rich_text: rt(intervention) },
         'Téléphone': { rich_text: rt(telephone) },
         'Mail': { email: mail || null },
-        'Date': date ? { date: { start: date } } : { date: null },
         'Statut': { select: { name: statut } },
         'Commande créée': { checkbox: false },
         'ID commande pièce': { rich_text: [] }
+      },
+        //Date modifier
+        'Date': date
+        ? { date: { start: date } }
+        : { date: null }
       };
 
       if (photoUrl) {
