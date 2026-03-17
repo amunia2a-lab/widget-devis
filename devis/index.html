@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Devis clients</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <header class="panel-header">
+        <div class="title-wrap">
+          <div class="title-icon">📄</div>
+          <h1>Devis clients</h1>
+        </div>
+        <div class="stats">
+          <div class="stat red"><span class="dot"></span><span id="count-pending">0</span></div>
+          <div class="stat yellow"><span class="dot"></span><span id="count-follow">0</span></div>
+          <div class="stat green"><span class="dot"></span><span id="count-valid">0</span></div>
+        </div>
+      </header>
+
+      <div id="toast" class="toast hidden">Demande de pièces envoyée avec succès.</div>
+
+      <section id="rows" class="rows"></section>
+
+      <div class="live-line"><strong id="count-total">0</strong> devis <span class="live-dot"></span> Mise à jour en temps réel</div>
+
+      <form id="quick-form" class="quick-form">
+        <div class="form-grid form-top">
+          <label>
+            <span>Client</span>
+            <input id="client" placeholder="Ex : Martin" required />
+          </label>
+          <label>
+            <span>Véhicule</span>
+            <input id="vehicule" placeholder="Ex : Peugeot 208" required />
+          </label>
+          <label>
+            <span>Immatriculation</span>
+            <input id="immat" placeholder="AB-123-CD" required />
+          </label>
+          <label>
+            <span>Intervention</span>
+            <input id="intervention" placeholder="Ex : Embrayage" required />
+          </label>
+        </div>
+
+        <div class="form-grid form-bottom">
+          <label>
+            <span>Téléphone</span>
+            <input id="telephone" placeholder="06 12 34 56 78" />
+          </label>
+          <label>
+            <span>Mail</span>
+            <input id="mail" type="email" placeholder="client@email.fr" />
+          </label>
+          <label>
+            <span>Date</span>
+            <input id="date" type="date" />
+          </label>
+          <label>
+            <span>Statut</span>
+            <select id="statut">
+              <option>En attente</option>
+              <option>À relancer</option>
+              <option>Validé</option>
+            </select>
+          </label>
+          <label>
+            <span>Photo URL</span>
+            <input id="photoUrl" placeholder="https://..." />
+          </label>
+          <button class="primary-btn" type="submit">+ Ajouter</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+<script>
+const rowsEl = document.getElementById('rows');
+const toastEl = document.getElementById('toast');
+
+function showToast(message) {
+  toastEl.textContent = message;
+  toastEl.classList.remove('hidden');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 2600);
+}
+
+function badgeClass(statut='') {
+  if (statut === 'En attente') return 'red';
+  if (statut === 'À relancer') return 'yellow';
+  if (statut === 'Validé') return 'green';
+  return 'red';
+}
+
+function nextActionLabel(statut='') {
+  if (statut === 'En attente') return 'Validé';
+  if (statut === 'À relancer') return 'Relancé';
+  if (statut === 'Validé') return 'Archiver';
+  return 'Validé';
+}
+
+function renderStats(items) {
+  const pending = items.filter(i => i.statut === 'En attente').length;
+  const follow = items.filter(i => i.statut === 'À relancer').length;
+  const valid = items.filter(i => i.statut === 'Validé').length;
+  document.getElementById('count-pending').textContent = pending;
+  document.getElementById('count-follow').textContent = follow;
+  document.getElementById('count-valid').textContent = valid;
+  document.getElementById('count-total').textContent = items.length;
+}
+
+async function loadRows() {
+  const [devisRes, commandesRes] = await Promise.all([
+    fetch('/api/devis'),
+    fetch('/api/commandes')
+  ]);
+
+  const devis = devisRes.ok ? await devisRes.json() : [];
+  const commandes = commandesRes.ok ? await commandesRes.json() : [];
+  const sentImmat = new Set(commandes.map(c => (c.immat || '').trim().toUpperCase()).filter(Boolean));
+
+  rowsEl.innerHTML = '';
+  renderStats(devis);
+
+  devis.forEach(item => {
+    const immatKey = (item.immat || '').trim().toUpperCase();
+    const isInPieces = sentImmat.has(immatKey) || !!item.commandeCreee;
+
+    const row = document.createElement('article');
+    row.className = 'row-card';
+    row.innerHTML = `
+      <div class="thumb-wrap">
+        ${item.photo ? `<img class="thumb" src="${item.photo}" alt="Photo">` : `<div class="thumb-empty">Photo</div>`}
+      </div>
+
+      <div class="row-main">
+        <div class="line-1">
+          <div class="client-line">
+            <span class="pill ${badgeClass(item.statut)}">${item.statut || ''}</span>
+            <strong>${item.client || ''}</strong>
+            <span class="sep">•</span>
+            <span>${item.vehicule || ''}</span>
+            <span class="sep">•</span>
+            <span>${item.intervention || ''}</span>
+          </div>
+          <div class="row-actions">
+            <button class="ghost-btn details-btn" type="button">${nextActionLabel(item.statut)}</button>
+            <button class="secondary-btn piece-btn ${isInPieces ? 'is-blue' : 'is-yellow'}" type="button">
+              ${isInPieces ? 'Demande envoyée' : 'Demander pièces'}
+            </button>
+          </div>
+        </div>
+
+        <div class="line-2">
+          <span class="meta">${item.date ? '📅 ' + item.date : ''}</span>
+          <span class="meta">${item.immat ? '🚗 ' + item.immat : ''}</span>
+          <span class="meta">${item.telephone ? '📞 ' + item.telephone : ''}</span>
+          <span class="meta">${item.mail ? '✉ ' + item.mail : ''}</span>
+        </div>
+      </div>
+    `;
+
+    const pieceBtn = row.querySelector('.piece-btn');
+    if (isInPieces) {
+      pieceBtn.disabled = true;
+    } else {
+      pieceBtn.addEventListener('click', async () => {
+        pieceBtn.disabled = true;
+        try {
+          const res = await fetch(`/api/devis/${item.id}/create-piece-order`, { method: 'POST' });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Erreur');
+          showToast('Demande de pièces envoyée avec succès.');
+          await loadRows();
+        } catch (e) {
+          showToast(e.message || "Impossible d'envoyer la demande.");
+          pieceBtn.disabled = false;
+        }
+      });
+    }
+
+    rowsEl.appendChild(row);
+  });
+}
+
+document.getElementById('quick-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    client: document.getElementById('client').value.trim(),
+    vehicule: document.getElementById('vehicule').value.trim(),
+    immat: document.getElementById('immat').value.trim(),
+    intervention: document.getElementById('intervention').value.trim(),
+    telephone: document.getElementById('telephone').value.trim(),
+    mail: document.getElementById('mail').value.trim(),
+    date: document.getElementById('date').value || null,
+    statut: document.getElementById('statut').value,
+    photoUrl: document.getElementById('photoUrl').value.trim()
+  };
+
+  const res = await fetch('/api/devis', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(data.error || "Impossible d'ajouter.");
+    return;
+  }
+  e.target.reset();
+  showToast('Devis ajouté avec succès.');
+  await loadRows();
+});
+
+loadRows().catch(err => {
+  rowsEl.innerHTML = '<p class="error">Impossible de charger les données.</p>';
+  console.error(err);
+});
+</script>
+</body>
+</html>
