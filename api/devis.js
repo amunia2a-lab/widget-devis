@@ -79,6 +79,21 @@ async function uploadPhotosToNotion(photoFiles = []) {
   return uploaded;
 }
 
+async function getDatabaseProperties() {
+  const db = await notion.databases.retrieve({ database_id: DEVIS_DB_ID });
+  return db.properties || {};
+}
+
+function findPropertyByType(properties, type, preferredNames = []) {
+  for (const name of preferredNames) {
+    if (properties[name]?.type === type) return name;
+  }
+  for (const [name, prop] of Object.entries(properties)) {
+    if (prop?.type === type) return name;
+  }
+  return null;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return sendJson(res, 200, { ok: true });
 
@@ -111,6 +126,13 @@ module.exports = async function handler(req, res) {
       } = body;
 
       const uploadedPhotos = await uploadPhotosToNotion(photoFiles);
+      const dbProps = await getDatabaseProperties();
+
+      const datePropName = findPropertyByType(dbProps, 'date', ['Date', 'date', '📅 Date']);
+      const urlPropName = dbProps['URL']?.type === 'url' ? 'URL' : (
+        dbProps['Photo URL']?.type === 'url' ? 'Photo URL' : findPropertyByType(dbProps, 'url', ['URL', 'Photo URL'])
+      );
+      const photoPropName = dbProps['Photo']?.type === 'files' ? 'Photo' : findPropertyByType(dbProps, 'files', ['Photo']);
 
       const properties = {
         'Client': { title: rt(client || 'Sans nom') },
@@ -119,14 +141,17 @@ module.exports = async function handler(req, res) {
         'Intervention': { rich_text: rt(intervention) },
         'Téléphone': { rich_text: rt(telephone) },
         'Mail': { email: mail || null },
-        'Date': date ? { date: { start: date } } : { date: null },
         'Statut': { select: { name: statut } },
         'Commande créée': { checkbox: false },
         'ID commande pièce': { rich_text: [] }
       };
 
-      if (uploadedPhotos.length) {
-        properties['Photo'] = {
+      if (datePropName) {
+        properties[datePropName] = date ? { date: { start: date } } : { date: null };
+      }
+
+      if (uploadedPhotos.length && photoPropName) {
+        properties[photoPropName] = {
           files: uploadedPhotos.map((file) => ({
             name: file.name,
             type: 'file_upload',
@@ -135,8 +160,8 @@ module.exports = async function handler(req, res) {
         };
       }
 
-      if (photoUrl) {
-        properties['URL'] = { url: photoUrl };
+      if (photoUrl && urlPropName) {
+        properties[urlPropName] = { url: photoUrl };
       }
 
       const created = await notion.pages.create({
@@ -144,7 +169,7 @@ module.exports = async function handler(req, res) {
         properties
       });
 
-      return sendJson(res, 201, { ok: true, id: created.id });
+      return sendJson(res, 201, { ok: true, id: created.id, datePropertyUsed: datePropName || null });
     }
 
     return sendJson(res, 405, { error: 'Méthode non autorisée.' });
