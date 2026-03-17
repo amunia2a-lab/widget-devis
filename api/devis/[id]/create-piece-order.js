@@ -1,0 +1,52 @@
+const {
+  notion,
+  COMMANDES_DB_ID,
+  rt,
+  mapDevis,
+  sendJson
+} = require('../../../lib/notion');
+
+module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') return sendJson(res, 200, { ok: true });
+  if (req.method !== 'POST') return sendJson(res, 405, { error: 'Méthode non autorisée.' });
+
+  if (!process.env.NOTION_TOKEN || !COMMANDES_DB_ID) {
+    return sendJson(res, 500, { error: 'Variables Vercel manquantes.' });
+  }
+
+  try {
+    const { id: devisId } = req.query;
+    const devisPage = await notion.pages.retrieve({ page_id: devisId });
+    const devis = mapDevis(devisPage);
+
+    if (devis.commandeCreee) {
+      return sendJson(res, 400, { error: 'Demande déjà envoyée pour ce devis.' });
+    }
+
+    const commande = await notion.pages.create({
+      parent: { database_id: COMMANDES_DB_ID },
+      properties: {
+        'Immat': { title: rt(devis.immat || 'Sans immat') },
+        'Véhicule': { rich_text: rt(devis.vehicule || '') },
+        'Client': { rich_text: rt(devis.client || '') },
+        'Intervention': { rich_text: rt(devis.intervention || '') },
+        'Fournisseur': { rich_text: [] },
+        'Date commande': { date: null },
+        'Statut': { select: { name: 'À commander' } }
+      }
+    });
+
+    await notion.pages.update({
+      page_id: devisId,
+      properties: {
+        'Commande créée': { checkbox: true },
+        'ID commande pièce': { rich_text: rt(commande.id) }
+      }
+    });
+
+    return sendJson(res, 200, { ok: true, commandeId: commande.id });
+  } catch (error) {
+    console.error(error);
+    return sendJson(res, 500, { error: 'Impossible d\'envoyer la demande de pièces.' });
+  }
+};
