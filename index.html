@@ -47,7 +47,7 @@
           </label>
         </div>
 
-        <div class="form-grid form-bottom">
+        <div class="form-grid form-bottom form-bottom-photos">
           <label>
             <span>Téléphone</span>
             <input id="telephone" placeholder="06 12 34 56 78" />
@@ -68,10 +68,16 @@
               <option>Validé</option>
             </select>
           </label>
-          <label>
-            <span>Photo URL</span>
-            <input id="photoUrl" placeholder="https://..." />
-          </label>
+
+          <div class="photo-picker-wrap">
+            <span class="field-label">Photo</span>
+            <label class="photo-picker" for="photos">
+              <span>📷</span>
+              <span id="photo-picker-text">Ajouter photo(s)</span>
+            </label>
+            <input id="photos" type="file" accept="image/*" multiple hidden />
+          </div>
+
           <button class="primary-btn" type="submit">+ Ajouter</button>
         </div>
       </form>
@@ -81,6 +87,8 @@
 <script>
 const rowsEl = document.getElementById('rows');
 const toastEl = document.getElementById('toast');
+const photosInput = document.getElementById('photos');
+const photoPickerText = document.getElementById('photo-picker-text');
 
 function showToast(message) {
   toastEl.textContent = message;
@@ -112,6 +120,29 @@ function renderStats(items) {
   document.getElementById('count-valid').textContent = valid;
   document.getElementById('count-total').textContent = items.length;
 }
+
+function filesToBase64(files) {
+  const list = Array.from(files || []);
+  return Promise.all(list.map(file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result || '';
+      const base64 = String(result).split(',')[1] || '';
+      resolve({
+        name: file.name,
+        type: file.type,
+        data: base64
+      });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  })));
+}
+
+photosInput.addEventListener('change', () => {
+  const count = photosInput.files?.length || 0;
+  photoPickerText.textContent = count ? `${count} photo(s) sélectionnée(s)` : 'Ajouter photo(s)';
+});
 
 async function loadRows() {
   const [devisRes, commandesRes] = await Promise.all([
@@ -189,6 +220,9 @@ async function loadRows() {
 
 document.getElementById('quick-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+
+  const photoFiles = await filesToBase64(photosInput.files);
+
   const payload = {
     client: document.getElementById('client').value.trim(),
     vehicule: document.getElementById('vehicule').value.trim(),
@@ -198,7 +232,7 @@ document.getElementById('quick-form').addEventListener('submit', async (e) => {
     mail: document.getElementById('mail').value.trim(),
     date: document.getElementById('date').value || null,
     statut: document.getElementById('statut').value,
-    photoUrl: document.getElementById('photoUrl').value.trim()
+    photoFiles
   };
 
   const res = await fetch('/api/devis', {
@@ -211,7 +245,9 @@ document.getElementById('quick-form').addEventListener('submit', async (e) => {
     showToast(data.error || "Impossible d'ajouter.");
     return;
   }
+
   e.target.reset();
+  photoPickerText.textContent = 'Ajouter photo(s)';
   showToast('Devis ajouté avec succès.');
   await loadRows();
 });
