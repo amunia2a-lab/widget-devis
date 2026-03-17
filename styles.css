@@ -39,10 +39,12 @@ h1{margin:0;font-size:34px}
 .sep{color:#a3a8bb}
 .row-actions{display:flex;gap:12px}
 .line-2{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.pill{display:inline-flex;align-items:center;justify-content:center;padding:8px 16px;border-radius:999px;font-weight:700;font-size:18px}
+.pill{display:inline-flex;align-items:center;justify-content:center;padding:8px 16px;border-radius:999px;font-weight:700;font-size:18px;border:0}
 .pill.red{background:var(--red-bg);color:#a32929}
 .pill.yellow{background:var(--yellow-bg);color:#8d6a00}
 .pill.green{background:var(--green-bg);color:#237a56}
+.status-btn{cursor:pointer}
+.status-btn.is-static{cursor:default}
 .meta{color:#505979;font-size:18px}
 .ghost-btn,.secondary-btn,.primary-btn{height:52px;border-radius:16px;border:1px solid #d8dced;background:#fff;padding:0 20px;font-size:18px;font-weight:700;color:var(--text);cursor:pointer}
 .secondary-btn.is-yellow{background:#fff1bf;border-color:#e6c45f;color:#7d5d00}
@@ -53,15 +55,17 @@ h1{margin:0;font-size:34px}
 .quick-form{margin:8px 18px 20px;padding:18px;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 8px 20px rgba(40,42,79,.04)}
 .form-grid{display:grid;gap:14px;align-items:end}
 .form-top{grid-template-columns:1fr 1fr 1fr 1.15fr}
-.form-bottom{grid-template-columns:1fr 1fr .9fr .9fr 1fr auto}
+.form-bottom{grid-template-columns:1fr 1fr .9fr .9fr 1fr auto auto}
 label span,.field-label{display:block;margin:0 0 8px 6px;font-size:17px;font-weight:700;color:#3c4567}
 input,select{width:100%;height:56px;border:1px solid #d9deef;border-radius:16px;padding:0 16px;font-size:18px;background:#fff;color:var(--text)}
-.photo-picker-wrap{display:flex;flex-direction:column}
+.photo-picker-wrap{display:flex;flex-direction:column;align-items:center;justify-content:end;gap:8px}
 .photo-picker{
-  width:100%;height:56px;border:1px dashed #b8c5f0;border-radius:16px;padding:0 16px;
-  font-size:18px;background:#f7f9ff;color:#3e57b8;display:flex;align-items:center;gap:10px;
+  width:56px;height:56px;border:1px dashed #b8c5f0;border-radius:18px;
+  font-size:24px;background:#f7f9ff;color:#3e57b8;display:flex;align-items:center;justify-content:center;
   cursor:pointer;font-weight:700
 }
+.photo-picker.icon-only span{line-height:1}
+.photo-count{font-size:13px;color:#6d7593;min-height:18px}
 .toast{margin:16px 18px 0;padding:16px 18px;border-radius:18px;background:#dff6e9;color:#1c7d55;font-size:18px;font-weight:700;border:1px solid #b8e9cf}
 .hidden{display:none}
 .error{padding:30px;color:#b42318}
